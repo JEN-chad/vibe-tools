@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jenchad-guard"
+version = "1.0.8"
+description = "AI code safety scanner + prompt version control, with a global git pre-commit hook"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+  { name = "vibe-tools contributors" }
+]
+keywords = ["git", "hooks", "code-quality", "ai", "vibe-coding", "cli"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+  "click>=8.1",
+  "rich>=13.0",
+  "groq>=0.9",
+  "pyperclip>=1.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "build", "twine"]
+
+[project.urls]
+Homepage = "https://github.com/Jen-chad/vibe-tools"
+Repository = "https://github.com/Jen-chad/vibe-tools"
+Issues   = "https://github.com/Jen-chad/vibe-tools/issues"
+
+# ─── CLI entry points ───────────────────────────────────────────────────────
+# # After `pip install jenchad-guard` these commands are available system-wide:
+#
+#   vibe-tools          → main unified CLI
+#   vibecheck           → direct access to the scanner
+#   promptgit           → direct access to prompt versioning
+#
+[project.scripts]
+vibeguard = "vibe_tools.cli:cli"
+vibecheck  = "vibe_tools.cli:vibecheck_entry"
+promptgit  = "vibe_tools.cli:promptgit_entry"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vibe_tools*"]
