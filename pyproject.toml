@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jenchad-guard"
-version = "1.0.8"
+version = "1.0.9"
 description = "AI code safety scanner + prompt version control, with a global git pre-commit hook"
 readme = "README.md"
 license = { text = "MIT" }

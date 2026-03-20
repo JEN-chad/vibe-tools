@@ -14,7 +14,7 @@ from rich.align import Align
 from importlib.metadata import version
 
 from vibe_tools.hook import hook
-from vibe_tools.config import setup_cmd
+from vibe_tools.setup import setup_cmd
 
 
 # ─── constants ──────────────────────────────────────────────────────────────
