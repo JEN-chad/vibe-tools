@@ -1,0 +1,69 @@
+{
+  "name": "vibeguard",
+  "displayName": "Vibeguard — AI Code Security",
+  "description": "Real-time security scanning for AI-generated code. Zero setup. 18 patterns. Autofix prompts. Works instantly on install.",
+  "version": "1.0.0",
+  "publisher": "jenchad",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/Jen-chad/vibe-tools" },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Linters", "Other"],
+  "keywords": ["security","AI code","secrets","SQL injection","ChatGPT","Copilot","vibeguard"],
+  "icon": "icon.png",
+  "galleryBanner": { "color": "#0F1B2D", "theme": "dark" },
+  "activationEvents": [
+    "onLanguage:python","onLanguage:javascript","onLanguage:typescript",
+    "onLanguage:javascriptreact","onLanguage:typescriptreact",
+    "onLanguage:yaml","onLanguage:json","onLanguage:shellscript"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "vibeguard.scanFile",            "title": "Vibeguard: Scan Current File" },
+      { "command": "vibeguard.scanWorkspace",       "title": "Vibeguard: Scan Entire Workspace" },
+      { "command": "vibeguard.clearDiagnostics",    "title": "Vibeguard: Clear All Diagnostics" },
+      { "command": "vibeguard.explainIssues",       "title": "Vibeguard: Open Fix Guidance Panel" },
+      { "command": "vibeguard.copyFixPrompt",       "title": "Vibeguard: Copy Fix Prompt for This Issue" },
+      { "command": "vibeguard.copyOnePrompt",       "title": "Vibeguard: Copy ONE Prompt for All Issues in File" },
+      { "command": "vibeguard.copyWorkspacePrompt", "title": "Vibeguard: Copy ONE Prompt for All Workspace Issues" }
+    ],
+    "configuration": {
+      "title": "Vibeguard",
+      "properties": {
+        "vibeguard.enabled":        { "type": "boolean", "default": true,       "description": "Enable Vibeguard security scanning" },
+        "vibeguard.scanOnSave":     { "type": "boolean", "default": true,       "description": "Scan automatically when you save" },
+        "vibeguard.scanOnType":     { "type": "boolean", "default": false,      "description": "Scan while typing (1.5s debounce)" },
+        "vibeguard.strict":         { "type": "boolean", "default": false,      "description": "Show MED issues as warnings too" },
+        "vibeguard.showInlineHints":{ "type": "boolean", "default": true,       "description": "Show fix guidance in hover tooltip" },
+        "vibeguard.vibeguardPath":  { "type": "string",  "default": "vibeguard","description": "Path to vibeguard CLI (for AST enhanced mode)" }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "vibeguard.explainIssues",
+          "group": "vibeguard@1",
+          "when": "resourceLangId == python || resourceLangId == javascript || resourceLangId == typescript"
+        },
+        {
+          "command": "vibeguard.copyOnePrompt",
+          "group": "vibeguard@2",
+          "when": "resourceLangId == python || resourceLangId == javascript || resourceLangId == typescript"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.24.0"
+  }
+}

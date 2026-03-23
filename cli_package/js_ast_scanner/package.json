@@ -1,0 +1,14 @@
+{
+  "name": "vibecheck-js-ast-scanner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JS/TS AST scanner for vibecheck using the TypeScript compiler API",
+  "main": "scanner.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "typescript": ">=4.0.0"
+  },
+  "notes": "typescript is resolved from the global tsc installation automatically; no npm install needed if tsc is on PATH"
+}
