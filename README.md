@@ -1,179 +1,165 @@
 # Vibeguard
 
+> **The safety layer for AI-generated code.**
+>
+> *Stop committing bugs you didn't write.*
 
+You paste AI code. You commit. Three weeks later an API key is scraped, or your app breaks silently in production with no logs, no trace, nothing to debug. Vibeguard sits at the one moment between "AI wrote it" and "it's in git forever" — your commit — and stops the ones that matter.
 
-> AI-powered code safety scanner with a global git pre-commit hook — built for developers who ship fast with AI assistants.
+```
+$ git commit -m "add auth"
 
-Vibeguard catches the bugs that vibe-coded AI output almost always leaves behind: hardcoded secrets, silent crash handlers, localhost URLs, and debug flags that make it to production. It runs in your terminal, hooks into git globally, and optionally narrates what changed using Groq's free AI API.
+╔═══════════════════════════════════════════════════════╗
+║  vibeguard blocked this commit                        ║
+║  HIGH severity issues must be fixed before committing ║
+║                                                       ║
+║  [HIGH] auth.py:14  → Hardcoded secret               ║
+║  [HIGH] api.py:31   → SQL string injection            ║
+║  [MED]  config.py:5 → Hardcoded localhost             ║
+╚═══════════════════════════════════════════════════════╝
+```
 
-🔗 GitHub: https://github.com/Jen-chad/vibe-tools
+Install once. Guards every repo on your machine automatically. Zero config. Works offline.
 
-> Install via `pip install jenchad-guard`
-
-Requires Python 3.10+. Works on macOS, Linux, and Windows.
+🔗 [github.com/Jen-chad/vibe-tools](https://github.com/Jen-chad/vibe-tools) · Python 3.10+ · macOS · Linux · Windows · MIT
 
 ---
 
-## Table of Contents
+## 30-second install
 
-1. [How it works](#how-it-works)
-2. [How Vibeguard compares to other PyPI tools](#how-vibeguard-compares-to-other-pypi-tools)
-3. [Installation](#installation)
-4. [First-time setup](#first-time-setup)
-5. [Scanning your code](#scanning-your-code)
-6. [Understanding the output](#understanding-the-output)
-7. [All scan options](#all-scan-options)
-8. [The global git hook](#the-global-git-hook)
-9. [Hook controls reference](#hook-controls-reference)
-10. [Strict mode](#strict-mode)
-11. [Prompt version control](#prompt-version-control)
-12. [What Vibeguard detects](#what-vibeguard-detects)
-13. [Troubleshooting](#troubleshooting)
-14. [Uninstalling](#uninstalling)
+```bash
+pip install jenchad-guard
+vibeguard hook install
+```
+
+Done. Every future `git commit` on your machine is now guarded. No per-repo setup. No config files to write. Just works.
+
+Want to scan right now?
+
+```bash
+cd your-project
+vibeguard check .
+```
+
+---
+
+## Built for how you actually code today
+
+If any of these sound familiar, this tool is for you:
+
+- You paste code from ChatGPT, Claude, or Cursor and commit it without reading every line
+- You've rotated an API key because it ended up in a public repo
+- Your app broke in production with no error log because the AI wrapped everything in `except: pass`
+- You've shipped `DEBUG=True` or `http://localhost:3000` into a live environment
+- You're building with AI agents across multiple sessions and the codebase is drifting
+
+Every other scanner was built for a world where humans write every line. Vibeguard was built for the world you're in now.
+
+---
+
+## What it catches
+
+15 patterns tuned specifically for what AI assistants write carelessly:
+
+| ID | Severity | What it catches | Why it matters |
+|---|---|---|---|
+| P1 | **HIGH** | Hardcoded secrets (API keys, tokens, passwords) | Scraped by bots within hours of a push |
+| P1b | **HIGH** | High-entropy strings (raw JWTs, webhook keys) | Catches secrets with no keyword prefix |
+| P_SQL | **HIGH** | SQL injection via f-strings or `.format()` | Classic AI habit — `f"SELECT * WHERE id={uid}"` |
+| P_SHELL | **HIGH** | `subprocess` with `shell=True` | Allows arbitrary command execution |
+| P_DESER | **HIGH** | `pickle.loads()` / `yaml.load()` without SafeLoader | Remote code execution if input is untrusted |
+| P_EVAL | **HIGH** | `eval()`/`exec()` on user input | Remote code execution |
+| P_ADMIN | **HIGH** | Hardcoded `admin` / `root` credentials | Trivial to exploit |
+| P2 | **HIGH** | `except: pass` — silent error catch | App fails with no trace, no log |
+| P3 | **HIGH** | Empty JS/TS catch blocks `.catch(() => {})` | Same as P2 but JavaScript |
+| P4 | **HIGH** | Credentials printed to logs | Visible in every monitoring tool |
+| P7 | **MED** | `except Exception: pass` — broad swallow | Bugs vanish completely in production |
+| P5 | **MED** | TODO/FIXME left in production paths | AI placeholder running in live code |
+| P6 | **MED** | Hardcoded `localhost` / `127.0.0.1` | Works locally, breaks every real deploy |
+| P8 | **LOW** | `DEBUG=True` / `NODE_ENV=development` | Exposes stack traces in production |
+| P_DUP | **MED** | Same function defined in multiple files | AI re-implements helpers across sessions |
+
+Scans: `.py` `.js` `.ts` `.jsx` `.tsx` `.json` `.yaml` `.yml` `.sh` `.bash` `.env`
+
+Auto-skips: `node_modules`, `dist`, `build`, `.next`, `__pycache__`, minified files, binaries, lock files, files over 500 KB.
 
 ---
 
 ## How it works
 
-Vibeguard does three things:
+**Offline-first.** The scanner runs entirely on your machine. No internet required. No API key needed for the core scan.
 
-**1. Pattern scanning** — reads the files changed in your last git commit (or all files if git isn't available) and checks them against 8 regex patterns that catch the most common AI-generated bugs. No internet connection required for this step.
+**Git-aware.** Runs `git diff` and scans only the files that changed in your last commit — fast, targeted, no noise from the rest of the codebase. Falls back to a full scan on brand-new repos.
 
-**2. AI narration** — if you have a Groq API key set, it sends your git diff to a Groq LLM and gets back a plain-English explanation of what changed and what could break. This is optional; the scanner works fine without it.
+**Entropy scanning.** Beyond keyword matching, high-entropy strings (raw JWTs, webhook secrets, base64 keys) are caught by Shannon entropy analysis — no keyword prefix needed.
 
-**3. Pre-commit hook** — optionally installs itself as a global git hook so every `git commit` on your machine runs the scanner automatically, blocking the commit if serious issues are found.
+**Pre-commit hook.** Optionally installs itself as a global git hook so every `git commit` on your machine runs the scanner automatically and blocks if serious issues are found.
 
----
+**Paper trail.** Every scan is appended to `VIBELOG.md` in your project root — an append-only history of what was found and when. Auto-added to `.gitignore` so it never pollutes `git status`.
 
-## How Vibeguard compares to other PyPI tools
-
-Most code analysis tools on PyPI were built for a world where humans write every line. Vibeguard was built for a world where AI writes most of it — and the mistakes AI makes are different. The table below maps every tool to its actual scope, then shows where Vibeguard is the only tool that covers the gap.
-
-### At a glance
-
-| | **Vibeguard** | **Bandit** | **Semgrep** | **detect-secrets** | **Ruff** | **Flake8 / Pylint** |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **PyPI package** | `jenchad-guard` | `bandit` | `semgrep` | `detect-secrets` | `ruff` | `flake8` / `pylint` |
-| **Primary purpose** | AI-generated bug safety | Python security (AST) | Multi-language SAST | Secrets only | Style & formatting | Style & lint |
-| **Languages covered** | `.py` `.js` `.ts` `.jsx` `.tsx` `.yaml` `.sh` `.env` | Python only | 30+ languages | All file types (secrets only) | Python only | Python only |
-| **Hardcoded secrets** | ✅ Built-in | ✅ Python only | ✅ Paid tier for full coverage | ✅ Specialised (25+ detectors) | ❌ | ❌ |
-| **Silent `except: pass`** | ✅ Python + JS/TS | ✅ Python only | ⚠️ Needs custom rules | ❌ | ⚠️ Partial (B110 via plugin) | ⚠️ Partial |
-| **Sensitive data in logs** | ✅ Built-in | ❌ | ⚠️ Needs custom rules | ❌ | ❌ | ❌ |
-| **Hardcoded localhost** | ✅ Built-in | ❌ | ⚠️ Needs custom rules | ❌ | ❌ | ❌ |
-| **TODO / FIXME in production** | ✅ Built-in | ❌ | ⚠️ Needs custom rules | ❌ | ⚠️ Via plugin only | ⚠️ Via plugin only |
-| **Debug flag detection** | ✅ Built-in | ❌ | ⚠️ Needs custom rules | ❌ | ❌ | ❌ |
-| **AI narration of what changed** | ✅ Free (Groq) | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **AI fix prompt generation** | ✅ Built-in | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Global git hook (one command)** | ✅ `vibeguard hook install` | ⚠️ Manual per-repo setup | ⚠️ Manual per-repo setup | ⚠️ Manual per-repo setup | ⚠️ Manual per-repo setup | ⚠️ Manual per-repo setup |
-| **Per-repo hook disable** | ✅ One git config line | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Strict mode (global + per-repo)** | ✅ Flag or git config | ❌ | ⚠️ Config file only | ❌ | ⚠️ Config file only | ⚠️ Config file only |
-| **Scans only changed files** | ✅ Auto via `git diff` | ❌ Full scan always | ⚠️ CI mode only | ❌ Full scan | ❌ Full scan | ❌ Full scan |
-| **Prompt version control** | ✅ Built-in (`promptgit`) | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Guided setup wizard** | ✅ `vibeguard setup` | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Zero config to start** | ✅ | ✅ | ⚠️ Rules file required | ✅ | ✅ | ⚠️ Noisy without config |
-| **Free & open source** | ✅ MIT | ✅ Apache 2.0 | ✅ Community / 💰 Pro | ✅ Apache 2.0 | ✅ MIT | ✅ MIT |
-
-### What each tool actually does — and where it stops
-
-**Bandit** (`pip install bandit`)
-
-Bandit is the gold standard for Python-specific security analysis. It uses AST (Abstract Syntax Tree) parsing rather than regex, which lets it catch complex patterns like unsafe `yaml.load()`, SQL injection risks, and insecure cryptography that regex-based tools miss entirely. In 2025 benchmarks on 50k LOC Django apps, Bandit averaged 15-second scans detecting 88% of issues — outpacing Pylint's 65% recall, though trailing Semgrep's 92% due to Semgrep's semantic analysis.
-
-Where it stops: Bandit only covers Python. It has no rules for JavaScript, TypeScript, YAML, or shell scripts — the other languages AI coding assistants routinely generate. It has no AI narration, no global hook installer, and requires per-repo setup for any git hook integration. It also produces no guidance on *how to fix* what it finds.
-
-**Semgrep** (`pip install semgrep`)
-
-Semgrep supports static analysis across 30+ languages and includes SAST, supply chain scanning, and secrets detection. Its rule language lets you write checks that look like the code you're scanning, without wrestling with ASTs. For teams with a security engineer who can write rules, it is the most powerful static analysis option in this list.
-
-Where it stops: In security contexts, Semgrep Community Edition misses many true positives because it can only analyze code within the boundaries of a single function or file. Cross-file and cross-function analysis, improved secrets detection, and AI-assisted triage require the paid AppSec Platform. Setup is also substantially heavier than every other tool here — rules must be configured before you get meaningful output, and the binary install is large.
-
-**detect-secrets** (`pip install detect-secrets`)
-
-detect-secrets operates through a system of plugins and filters covering 25+ secret types — AWS keys, GitHub tokens, Stripe keys, OpenAI keys, JWT tokens, Twilio keys, and more — using both regex-based detectors and entropy analysis for non-structured secrets. For the single job of keeping secrets out of commits, it is the most thorough specialised tool available.
-
-Where it stops: detect-secrets *only* finds secrets. It has no awareness of silent error handling, localhost URLs, debug flags, or any other category of AI-generated bug. Analysis of the project's maintenance status based on PyPI release cadence determined that its maintenance is inactive — it hasn't seen any new versions released to PyPI in the past 12 months and could be considered discontinued.
-
-**Ruff** (`pip install ruff`)
-
-Ruff is an extremely fast Python linter and formatter written in Rust, aiming to replace Flake8, Black, isort, pydocstyle, pyupgrade, and autoflake in a single tool that runs tens to hundreds of times faster than any individual tool. On a 250k LOC module, Pylint takes about 2.5 minutes parallelised across 4 cores on an M1 Mac — Ruff covers the same ground in under a second. For style enforcement and formatting in Python projects, it is the right choice.
-
-Where it stops: Ruff only covers Python. It is not a security tool — it has no rules for secrets, silent crash patterns, localhost URLs, or debug flags left on in production. Ruff's primary limitation is that it does not support custom lint rules. Every security or safety check must be re-implemented in Rust and merged into Ruff itself, which means gaps in AI-specific patterns will remain for a long time.
-
-**Flake8 / Pylint** (`pip install flake8` / `pip install pylint`)
-
-The traditional Python code quality workhorses. Pylint gives you a thorough quality score and catches logic issues that faster tools miss; Ruff has increasingly consolidated this category by reimplementing the rules of multiple tools in a single extremely fast binary. Neither Flake8 nor Pylint covers multi-language codebases, secrets, crash-hiding patterns, or any of the deployment risks Vibeguard targets.
-
-### Customisability: how each tool lets you adapt it
-
-| Customisation scenario | **Vibeguard** | Bandit | Semgrep | detect-secrets | Ruff |
-|---|---|---|---|---|---|
-| **Turn scanning on/off per repo** | `git config vibe-tools.disable true` — one line, no files changed | Manual hook removal | Manual | Manual | Manual |
-| **Set severity threshold** | `--strict` flag or `git config vibe-tools.strict true/false` | `-l LOW/MEDIUM/HIGH` flag per run | Rule severity in YAML config | N/A | `--select` / `--ignore` flags |
-| **Global default + per-repo override** | ✅ Full git config layering — global sets default, local overrides it | ❌ | ⚠️ Config files per repo only | ❌ | ⚠️ Config files per repo only |
-| **Skip specific files or directories** | Auto-skips `node_modules`, `dist`, binaries, lock files | `--exclude` flag or `.bandit` config | `--exclude` patterns in CLI or config | `--exclude-files` regex | `exclude` list in `ruff.toml` |
-| **Scan only recent history** | `--commits N` — scan last N commits | ❌ Always full scan | ❌ | ❌ | ❌ |
-| **Output format** | Rich table, compact one-liner, or summary | Text, JSON, CSV, SARIF, XML | Text, JSON, SARIF | JSON, human-readable | Text, JSON, SARIF, JUnit, GitHub/GitLab annotations |
-| **Explanation style** | `--mode eli5 / beginner / dev` — changes AI narration tone | ❌ | ❌ | ❌ | ❌ |
-| **Copy fix prompt to clipboard** | `--copy` flag | ❌ | ❌ | ❌ | ❌ |
-| **No config file required** | ✅ Everything works via flags and git config | ✅ | ⚠️ Need rules to get useful output | ✅ | ✅ sensible defaults |
-
-### The right way to use these tools together
-
-Vibeguard does not replace Bandit, Ruff, or detect-secrets — it fills a different gap. The tools complement each other:
-
-| Your project | Recommended stack |
-|---|---|
-| Python only | Vibeguard (safety + hook) + Ruff (style) + Bandit (deep Python security in CI) |
-| Python + JS/TS | Vibeguard (safety + hook) + Ruff (Python style) |
-| Security-critical Python | Vibeguard (safety + hook) + Bandit + detect-secrets (in CI) |
-| Any AI-assisted project | Vibeguard as the first line — catches what AI gets wrong, regardless of language |
-
-The key distinction: every other tool here requires per-repo configuration to enforce anything at commit time. Vibeguard is the only tool that installs a global pre-commit hook with one command, works across every repo on your machine with no per-repo setup, and lets you relax or tighten that enforcement per repo in a single git config line.
+**AI features** (optional, needs a free Groq key):
+- `--narrate` — 3-bullet plain-English explanation of what the diff changed and why it's risky
+- `--explain` — numbered fix guidance for each issue, with AI elaboration on your specific code
 
 ---
 
-## Installation
+## Complete setup guide
+
+### Step 1 — Install
 
 ```bash
 pip install jenchad-guard
+```
+
+Verify:
+
+```bash
+vibeguard --version
+# vibeguard 1.0.0
 ```
 
 This installs three commands:
 
 | Command | What it does |
 |---|---|
-| `vibeguard` | Main CLI — the entry point for everything |
+| `vibeguard` | Main CLI — entry point for everything |
 | `vibecheck` | Direct alias for the code scanner |
 | `promptgit` | Direct alias for prompt version control |
 
-Verify the install worked:
+---
+
+### Step 2 — Install the global pre-commit hook
 
 ```bash
-vibeguard --version
+vibeguard hook install
 ```
+
+This writes a hook to `~/.config/git/hooks/pre-commit` and sets `git config --global core.hooksPath` so every repo on your machine uses it automatically — existing and future projects alike.
+
+Verify:
+
+```bash
+vibeguard hook status
+```
+
+From this point forward, any `git commit` that introduces a HIGH-severity issue is blocked until you fix it.
 
 ---
 
-## First-time setup
+### Step 3 — (Optional) Add AI features with a free Groq key
 
-Run the guided setup wizard once after installing:
+The scanner works fully offline without this. But if you want plain-English diff explanations and AI-powered fix guidance, get a free Groq key at [console.groq.com](https://console.groq.com) — takes about two minutes.
+
+Run the guided setup wizard:
 
 ```bash
 vibeguard setup
 ```
 
-The wizard will:
-
-1. Ask you to paste your Groq API key (for AI narration). Get a free key at [console.groq.com](https://console.groq.com) — takes about two minutes.
-2. Ask whether to save the key **globally** (works everywhere on your machine, recommended) or **locally** (only in the current project).
-3. Confirm everything is working with a test scan.
-
-If you skip setup, Vibeguard still works — the scanner and git hook run fine without a Groq key. Only the AI narration and line explanation features require it.
-
-You can also set the key manually at any time:
+Or set the key manually:
 
 ```bash
-# macOS / Linux
+# macOS / Linux — add to ~/.bashrc or ~/.zshrc
 export GROQ_API_KEY="your-key-here"
 
 # Windows (Command Prompt)
@@ -183,282 +169,220 @@ set GROQ_API_KEY=your-key-here
 $env:GROQ_API_KEY="your-key-here"
 ```
 
-To make it permanent, add the `export` line to your `~/.bashrc`, `~/.zshrc`, or equivalent shell config file.
+---
+
+### Step 4 — (Optional) Create a `.vibecheck` config file
+
+Drop a `.vibecheck` file in your project root (or `~/`) to set defaults without passing flags every time:
+
+```
+# .vibecheck
+mode    = dev        # eli5 | beginner | dev  (AI explanation style)
+strict  = false      # true = also fail on MED issues
+compact = false      # true = one line per issue output
+```
+
+CLI flags always override the config file.
 
 ---
 
 ## Scanning your code
 
-Navigate to your project folder and run:
+### Basic scan
 
 ```bash
 cd your-project
 vibeguard check .
 ```
 
-The `.` tells Vibeguard to scan the current directory. You can pass any path:
+Scans the files changed in your last git commit. Output:
+
+```
+╭──────────────────────────────────────────────╮
+│         vibecheck  v1.0.0                    │
+│         Scanned 4 file(s)                    │
+╰──────────────────────────────────────────────╯
+
+╭─── Scan results ─────────────────────────────────────────────────────╮
+│ Severity │ File      │ Line │ Issue              │ Why it matters     │
+│ HIGH     │ auth.py   │ 14   │ Hardcoded secret   │ Scraped within...  │
+│ HIGH     │ api.py    │ 31   │ SQL string inject  │ Dynamic SQL via... │
+│ MED      │ config.py │ 5    │ Hardcoded localhost│ Works locally...   │
+╰──────────────────────────────────────────────────────────────────────╯
+
+Summary:  2 HIGH  1 MED  0 LOW
+
+Suppress a false positive: add  # vibecheck-ignore  or  # vibecheck-ignore: P1  to the flagged line.
+Run with  --explain  for step-by-step fix guidance on each issue.
+```
+
+**Exit codes:** `1` if HIGH issues are found (blocks the hook). `0` if clean.
+
+---
+
+### All scan flags
+
+#### `--explain` — numbered fix guidance (offline + optional AI)
+
+After the scan, shows a numbered list of every issue. Type a number for instant fix guidance — before/after code examples for that specific pattern, no format to memorise, no transcription:
 
 ```bash
-vibeguard check /path/to/any/project
+vibeguard check . --explain
 ```
 
-By default, Vibeguard scans the files changed in your most recent git commit. If you're not in a git repo, it scans all supported files in the directory.
+```
+Fix guidance  (enter number, or q to quit)
+
+   1  auth.py:14   Hardcoded secret
+   2  api.py:31    SQL string injection
+   3  config.py:5  Hardcoded localhost
+
+> 1
+
+╭─── [P1] Fix guidance ──────────────────────────────────────────────╮
+│ Issue:  Hardcoded secret                                            │
+│ File:   auth.py  line 14                                            │
+│ Why:    Ships to GitHub and gets scraped by bots within hours.      │
+│                                                                     │
+│ Code:                                                               │
+│   api_key = "sk-abc123verylongsecret"                               │
+│                                                                     │
+│ How to fix:                                                         │
+│   Replace the hardcoded value with an environment variable.         │
+│   Before: api_key = "sk-abc123"                                     │
+│   After:  api_key = os.getenv("API_KEY")                            │
+╰─────────────────────────────────────────────────────────────────────╯
+```
+
+Works 100% offline. If `GROQ_API_KEY` is set, an AI elaboration panel appears below with 2-3 sentences targeted to your specific code.
 
 ---
 
-## Understanding the output
+#### `--narrate` — 3-bullet AI diff summary (needs Groq key)
 
-A typical run looks like this:
-
-```
-╭─────────────────────────────────────────────────────╮
-│         VibeCheck – AI Code Risk Scanner            │
-│              Scanned 4 file(s)                      │
-╰─────────────────────────────────────────────────────╯
-
-╭─── Explanation ──────────────────────────────────────╮
-│ • auth.py added a login route. The API key is        │
-│   hardcoded, which will be exposed if pushed.        │
-│ • config.py has a localhost URL that will break      │
-│   in any deployed environment.                       │
-╰──────────────────────────────────────────────────────╯
-
-╭─── Regression Scan ──────────────────────────────────╮
-│ Severity │ File        │ Line │ Issue            │ Why │
-│ HIGH     │ auth.py     │ 12   │ Hardcoded secret │ ... │
-│ MED      │ config.py   │ 5    │ Hardcoded local  │ ... │
-╰──────────────────────────────────────────────────────╯
-
-Summary: 1 HIGH  1 MED  0 LOW
-```
-
-The top panel shows how many files were scanned. The Explanation panel (requires Groq key) gives a plain-English summary of what the AI changed and what risks it introduced. The Regression Scan table lists every issue found, sorted HIGH → MED → LOW. The Summary line at the bottom gives you a quick count.
-
-If there are no issues, you'll see:
-
-```
-╭──────────────────────────────╮
-│  ✓ Clean — no issues detected │
-╰──────────────────────────────╯
-```
-
-**Exit codes** — Vibeguard exits with code `1` if blocking issues are found, and `0` if the scan is clean. This makes it work in CI/CD pipelines without extra configuration.
-
----
-
-## All scan options
-
-### `--scan-only` — skip AI narration
-
-Runs the pattern scanner without calling the Groq API. Faster, works offline, and doesn't require an API key.
+Sends your git diff to Groq and returns a plain-English explanation of what changed and what could break:
 
 ```bash
-vibeguard check . --scan-only
+vibeguard check . --narrate
+vibeguard check . --narrate --mode eli5    # plain words, no jargon
+vibeguard check . --narrate --mode dev     # technical, senior-engineer voice
 ```
 
-Use this in CI/CD where you want deterministic, no-network scanning.
+Three explanation modes:
+
+| Mode | Who it's for | Labels |
+|---|---|---|
+| `dev` (default) | Engineers who want the technical summary | Change · Impact · Risk |
+| `beginner` | Junior devs or non-technical reviewers | What changed · Why · Risk |
+| `eli5` | Anyone, plainest possible English | What changed · Why · Risk |
 
 ---
 
-### `--compact` — one line per issue
+#### `--autofix` — generate fix prompts
 
-Prints a minimal single-line format instead of the full table. Useful for scripts or very wide terminals.
+For every issue found, generates a targeted prompt you can paste into Claude, ChatGPT, or Cursor to fix only that specific issue:
 
 ```bash
-vibeguard check . --compact
+vibeguard check . --autofix           # one prompt per issue
+vibeguard check . --autofix --one-prompt   # combine all into one prompt
+vibeguard check . --autofix --copy         # copy prompt(s) to clipboard
 ```
 
-Output looks like:
-
-```
-[HIGH] auth.py:12      → Hardcoded secret
-[MED ] config.py:5     → Hardcoded localhost
-```
+Each prompt contains the file name, line number, the problematic code, and strict rules to fix only that issue — nothing else.
 
 ---
 
-### `--mode` — choose explanation style
+#### `--strict` — also block on MED issues
 
-Controls how the AI narration is written. Three options:
-
-```bash
-vibeguard check . --mode eli5      # Explain Like I'm 5 — very simple, 3 lines max
-vibeguard check . --mode beginner  # Plain English, no jargon (default)
-vibeguard check . --mode dev       # Technical, concise, senior-engineer voice
-```
-
-If you don't pass `--mode`, Vibeguard will ask you to choose interactively.
-
----
-
-### `--commits` — scan more history
-
-By default, only the most recent commit is scanned. Use `--commits N` to look back further:
-
-```bash
-vibeguard check . --commits 3   # scan files changed in last 3 commits
-vibeguard check . --commits 10  # scan last 10 commits
-```
-
-Useful after merging a large feature branch or when onboarding to a new codebase.
-
----
-
-### `--autofix` — generate fix prompts
-
-For every issue found, generates a targeted prompt you can paste into Claude, ChatGPT, or Cursor to fix that specific issue without touching the rest of the file.
-
-```bash
-vibeguard check . --autofix
-```
-
-Each prompt includes the file name, line number, the problematic code, and strict instructions to fix only that issue — nothing else.
-
----
-
-### `--one-prompt` — combine all fixes into one prompt
-
-Instead of one prompt per issue, packages all fixes into a single combined prompt:
-
-```bash
-vibeguard check . --autofix --one-prompt
-```
-
-Best used when you have 3–5 issues and want to hand them all to an AI assistant at once.
-
----
-
-### `--copy` — copy the prompt to clipboard
-
-Copies the generated fix prompt(s) directly to your clipboard so you can paste immediately:
-
-```bash
-vibeguard check . --autofix --copy
-vibeguard check . --autofix --one-prompt --copy
-```
-
-Requires `pyperclip`, which is installed automatically with Vibeguard.
-
----
-
-### `--strict` — also fail on MED issues
-
-By default, Vibeguard only exits with code `1` (blocking) on HIGH issues. With `--strict`, MED issues also block:
+By default only HIGH issues block commits. Strict mode also blocks on MED:
 
 ```bash
 vibeguard check . --strict
 ```
 
-See the [Strict mode](#strict-mode) section for details on when to use this.
+Recommended for production services or security-sensitive code.
+
+---
+
+#### `--compact` — one line per issue (CI-friendly)
+
+```bash
+vibeguard check . --compact
+```
+
+```
+[HIGH] auth.py:14      → Hardcoded secret
+[HIGH] api.py:31       → SQL string injection
+[MED ] config.py:5     → Hardcoded localhost
+```
+
+No ANSI colour codes when piped — automatically clean for CI logs.
+
+---
+
+#### `--commits N` — scan more history
+
+```bash
+vibeguard check . --commits 3    # scan files changed in last 3 commits
+vibeguard check . --commits 10   # useful after merging a large branch
+```
+
+---
+
+#### `--mode` — set AI explanation style
+
+```bash
+vibeguard check . --mode eli5
+vibeguard check . --mode beginner
+vibeguard check . --mode dev
+```
+
+Can also be set permanently in `.vibecheck`.
+
+---
+
+### Suppressing false positives
+
+Add a comment to any line to suppress that issue:
+
+```python
+# Suppress everything on this line
+BASE_URL = "http://localhost:3000"   # vibecheck-ignore
+
+# Suppress a specific pattern only (P6 = hardcoded localhost)
+BASE_URL = "http://localhost:3000"   # vibecheck-ignore: P6
+
+# Suppress multiple patterns
+key = get_test_key()                 # vibecheck-ignore: P1, P1b
+```
+
+The suppress hint appears at the bottom of every scan that finds issues — you never need to memorise the syntax.
 
 ---
 
 ## The global git hook
 
-The most powerful Vibeguard feature. Install it once and every `git commit` on your machine — in any project — automatically runs the scanner before the commit goes through.
-
-### Installing the hook
+The most useful Vibeguard feature. Install once, guard everything.
 
 ```bash
-vibeguard hook install
+vibeguard hook install          # normal mode — blocks HIGH
+vibeguard hook install --strict  # strict mode — blocks HIGH + MED
 ```
 
-This does two things under the hood:
-
-1. Writes a shell script to `~/.config/git/hooks/pre-commit`
-2. Runs `git config --global core.hooksPath ~/.config/git/hooks`
-
-Git's `core.hooksPath` setting makes git look for hooks in that directory for every repository on the machine. No per-repo setup needed — it works immediately for all existing and future projects.
-
-### Installing with strict mode
+### Hook controls
 
 ```bash
-vibeguard hook install --strict
-```
+vibeguard hook status           # show current status
+vibeguard hook uninstall        # remove the hook entirely
 
-With strict mode, the hook blocks commits that contain MED-severity issues as well as HIGH. Recommended for production services, security-sensitive code, or any project where code quality matters.
+vibeguard hook disable          # skip this repo only (hook stays on everywhere else)
+vibeguard hook enable           # re-enable for this repo
 
-### What happens on a blocked commit
-
-When the hook catches an issue and blocks your commit, you'll see:
-
-```
-╔═══════════════════════════════════════════════════════╗
-║  vibeguard blocked this commit                        ║
-║  HIGH severity issues must be fixed before committing ║
-║                                                       ║
-║  To skip for this repo:                               ║
-║    git config vibe-tools.disable true                 ║
-║                                                       ║
-║  To disable strict mode for this repo:                ║
-║    git config vibe-tools.strict false                 ║
-╚═══════════════════════════════════════════════════════╝
-```
-
-The box also tells you exactly what command to run if you want to disable or relax the check for that specific repo.
-
-### Temporarily bypassing the hook
-
-If you need to commit something urgently and can't fix the issues right now, git's built-in bypass flag still works:
-
-```bash
-git commit --no-verify -m "your message"
-```
-
-Use this sparingly. The hook exists to protect you.
-
----
-
-## Hook controls reference
-
-### View current status
-
-```bash
-vibeguard hook status
-```
-
-Shows whether the hook is installed, where it lives, and what strict mode is currently set to — both globally and for the current repo.
-
----
-
-### Remove the hook
-
-```bash
-vibeguard hook uninstall
-```
-
-Removes the pre-commit file and clears `core.hooksPath` from your global git config. Git returns to its default behaviour — no more automatic scanning on commit.
-
----
-
-### Disable for one repo only
-
-```bash
-vibeguard hook disable
-```
-
-Adds `vibe-tools.disable = true` to the current repo's local git config. The global hook stays installed and works everywhere else — this repo alone is skipped.
-
-```bash
-vibeguard hook enable
-```
-
-Re-enables the hook for the current repo (removes the local disable flag).
-
----
-
-### Toggle strict mode globally
-
-```bash
 vibeguard hook enable-strict    # block MED + HIGH globally
 vibeguard hook disable-strict   # block HIGH only globally
 ```
 
----
-
-### Override strict mode for one repo
-
-You can override the global strict setting per-repo using git config directly:
+### Per-repo overrides
 
 ```bash
 # Turn strict ON for this repo (even if global strict is off)
@@ -467,75 +391,74 @@ git config vibe-tools.strict true
 # Turn strict OFF for this repo (even if global strict is on)
 git config vibe-tools.strict false
 
-# Remove the local override — follow global setting again
-git config --unset vibe-tools.strict
+# Disable scanning entirely for this repo
+git config vibe-tools.disable true
 ```
+
+### Bypass in an emergency
+
+```bash
+git commit --no-verify -m "your message"
+```
+
+Use sparingly. The hook exists to protect you.
 
 ---
 
-## Strict mode
+## VIBELOG — your scan history
 
-Strict mode controls which severity levels block your workflow.
+Every scan automatically appends a timestamped entry to `VIBELOG.md` in your project root:
 
-| Mode | Blocks commits on | Recommended for |
-|---|---|---|
-| Normal (default) | HIGH only | Most projects |
-| Strict | HIGH + MED | Production services, security code, shared codebases |
+```markdown
+# vibecheck scan log
 
-**HIGH issues** are always serious: hardcoded secrets, silent error swallowing, credentials in logs. These have a direct path to production outages or security breaches.
+Append-only record of every vibecheck scan on this project.
 
-**MED issues** are risky but not always wrong: TODO comments left in, localhost URLs, broad exception handlers. Sometimes intentional, often not. Strict mode says "we don't tolerate technical debt either."
+---
 
-You can mix and match: enable strict globally, then relax it for a specific repo where MED patterns are expected (like a config repo with intentional localhost entries):
+## 2026-03-21 14:32 UTC — 4 file(s) scanned
+**Issues:** 2 HIGH  1 MED  0 LOW
 
-```bash
-# Global: strict on
-vibeguard hook enable-strict
-
-# This repo: relax strict
-git config vibe-tools.strict false
+| Severity | File | Line | Issue |
+|----------|------|------|-------|
+| HIGH | auth.py | 14 | Hardcoded secret |
+| HIGH | api.py | 31 | SQL string injection |
+| MED | config.py | 5 | Hardcoded localhost |
 ```
+
+`VIBELOG.md` is automatically added to your `.gitignore` on first scan — it never pollutes `git status`.
 
 ---
 
 ## Prompt version control
 
-Vibeguard includes `promptgit` — a lightweight version control system for the system prompts, instruction files, and AI context files that drive your AI-assisted workflow. Think of it like git, but purpose-built for `.md`, `.txt`, and prompt files.
+Vibeguard includes `promptgit` — lightweight version control for the system prompts, AGENTS.md files, and instruction files that drive your AI workflow. Think of it as git specifically for `.md` and `.txt` prompt files.
 
 ### Why this exists
 
-When you're iterating on a system prompt for Cursor, Claude, or any AI tool, you end up with `prompt_v1.md`, `prompt_v2_final.md`, `prompt_v2_final_ACTUALLY_FINAL.md`. Promptgit replaces that chaos with a clean commit history and one-command rollback.
+When you're iterating on a system prompt, you end up with `prompt_v1.md`, `prompt_v2_final.md`, `prompt_ACTUALLY_FINAL.md`. Promptgit replaces that chaos with a clean commit history and one-command rollback.
 
-### Setting up a prompt repo
+### Setup
 
 ```bash
 cd your-project
 
-# Initialise a .promptgit directory in this folder
+# Initialise promptgit in this directory
 vibeguard prompt init
-```
 
-### Tracking a file
-
-```bash
-# Tell promptgit which file(s) to version
+# Tell it which files to track
 vibeguard prompt add AGENTS.md
 vibeguard prompt add system-prompt.txt
 ```
 
-You can track multiple files. All tracked files are snapshotted together in every commit.
-
-### Saving a version
+### Saving versions
 
 ```bash
 vibeguard prompt commit -m "initial prompt"
-```
 
-After editing your prompt file:
-
-```bash
+# After editing your prompt:
 vibeguard prompt commit -m "added JSON output rule"
-vibeguard prompt commit -m "tightened response length to 150 words"
+vibeguard prompt commit -m "tightened response to 150 words"
 ```
 
 ### Viewing history
@@ -544,160 +467,146 @@ vibeguard prompt commit -m "tightened response length to 150 words"
 vibeguard prompt log
 ```
 
-Output:
-
 ```
- Ref  │ Hash     │ Timestamp            │ Message                     │ Words
- v3   │ c4d5e6f7 │ 2026-03-20 11:30 UTC │ tightened response length   │ 162
- v2   │ a1b2c3d4 │ 2026-03-20 10:00 UTC │ added JSON output rule      │ 148
- v1   │ 9f8e7d6c │ 2026-03-19 09:00 UTC │ initial prompt              │ 98
+ Ref  │ Hash     │ Timestamp            │ Message                   │ Words
+ v3   │ c4d5e6f7 │ 2026-03-21 11:30 UTC │ tightened response length │ 162
+ v2   │ a1b2c3d4 │ 2026-03-21 10:00 UTC │ added JSON output rule    │ 148
+ v1   │ 9f8e7d6c │ 2026-03-20 09:00 UTC │ initial prompt            │ 98
 ```
 
 ### Rolling back
 
 ```bash
-# Restore a specific version by ref number
-vibeguard prompt rollback v1
-
-# Restore by hash prefix
-vibeguard prompt rollback 9f8e7d6c
-
-# Restore the most recent commit
-vibeguard prompt rollback HEAD
+vibeguard prompt rollback v1          # restore version 1
+vibeguard prompt rollback 9f8e7d6c    # restore by hash
+vibeguard prompt rollback HEAD        # restore most recent
 ```
 
-Rollback shows you exactly which files it will overwrite and asks for confirmation before doing anything. After restoring, commit the rollback state to keep a clean history:
-
-```bash
-vibeguard prompt commit -m "rolled back to v1 — JSON format caused issues"
-```
+Rollback shows you exactly what it will overwrite and asks for confirmation before doing anything.
 
 ---
 
-## What Vibeguard detects
+## How Vibeguard compares
 
-| ID | Severity | Pattern | File types | Why it matters |
-|---|---|---|---|---|
-| P1 | HIGH | Hardcoded secret | `.py` `.js` `.ts` `.jsx` `.tsx` `.env` `.sh` `.yaml` | Secrets committed to git get scraped by bots within hours of pushing |
-| P2 | HIGH | Silent error catch (`except: pass`) | `.py` | Exceptions swallowed silently — the app fails with no trace and no way to debug |
-| P3 | HIGH | Empty JS catch block (`catch(e) {}`) | `.js` `.ts` `.jsx` `.tsx` | Same as P2 but for JavaScript — errors vanish without any record |
-| P4 | HIGH | Sensitive data in logs | `.py` `.js` `.ts` `.jsx` `.tsx` | Tokens and passwords written to logs end up in monitoring tools and log aggregators |
-| P5 | MED | TODO in production path | `.py` `.js` `.ts` `.jsx` `.tsx` `.sh` | AI assistants frequently leave TODO placeholders in code paths that actually run |
-| P6 | MED | Hardcoded localhost | `.py` `.js` `.ts` `.json` `.yaml` | Works on your machine, breaks silently the moment it's deployed anywhere |
-| P7 | MED | `except Exception: pass` | `.py` | Broad exception caught and discarded — bugs disappear completely in production |
-| P8 | LOW | Hardcoded debug flag | `.py` `.js` `.ts` `.env` `.yaml` | `DEBUG=True` or `NODE_ENV=development` left on exposes internals in production |
+Most security tools were built for CI — they run after code is already pushed. Vibeguard runs at commit time, on your machine, before anything leaves.
 
-Vibeguard scans these file extensions: `.py` `.js` `.ts` `.jsx` `.tsx` `.json` `.yaml` `.yml` `.sh` `.bash` `.env`
+| | **Vibeguard** | **Bandit** | **Semgrep** | **detect-secrets** | **Ruff** |
+|---|:---:|:---:|:---:|:---:|:---:|
+| AI-generated bug patterns | ✅ 15 built-in | ⚠️ Python only | ⚠️ Needs custom rules | ❌ | ❌ |
+| SQL / shell injection | ✅ | ✅ Python only | ⚠️ Paid | ❌ | ❌ |
+| Entropy-based secret detection | ✅ Built-in | ❌ | ⚠️ Paid | ✅ | ❌ |
+| Duplicate function detection | ✅ Cross-file | ❌ | ❌ | ❌ | ❌ |
+| Global git hook (one command) | ✅ | ⚠️ Per-repo | ⚠️ Per-repo | ⚠️ Per-repo | ⚠️ Per-repo |
+| Scans only changed files | ✅ Auto via git diff | ❌ Full scan | ⚠️ CI mode only | ❌ Full scan | ❌ Full scan |
+| Offline (no internet needed) | ✅ Core scan | ✅ | ✅ | ✅ | ✅ |
+| AI narration of diff | ✅ Free (Groq) | ❌ | ❌ | ❌ | ❌ |
+| Fix guidance per issue | ✅ Offline | ❌ | ❌ | ❌ | ❌ |
+| Scan history (VIBELOG) | ✅ Auto | ❌ | ❌ | ❌ | ❌ |
+| Prompt version control | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
+| Zero config to start | ✅ | ✅ | ⚠️ | ✅ | ✅ |
+| JS / TS / YAML / shell | ✅ | ❌ | ✅ | ✅ | ❌ |
+| Free & open source | ✅ MIT | ✅ | ✅ Community | ✅ | ✅ |
 
-It automatically skips `node_modules`, `dist`, `build`, `.next`, `__pycache__`, minified files, binaries, images, lock files, and any file over 500 KB.
+**The right stack:** Vibeguard is not a replacement for Bandit or Ruff — it fills a different gap.
+
+| Project type | Recommended |
+|---|---|
+| Python only | Vibeguard (safety + hook) + Ruff (style) + Bandit (deep Python security in CI) |
+| Python + JS/TS | Vibeguard (safety + hook) + Ruff (Python style) |
+| Security-critical | Vibeguard + Bandit + detect-secrets (all in CI) |
+| Any AI-assisted project | Vibeguard as the first line — catches what AI gets wrong, regardless of language |
+
+---
+
+## Naming
+
+Three names, one tool:
+
+| Name | What it is |
+|---|---|
+| **Vibeguard** | The brand. What you call it, search for it, star on GitHub. |
+| **jenchad-guard** | The PyPI package name (`pip install jenchad-guard`). PyPI requires globally unique names. |
+| `vibeguard` / `vibecheck` / `promptgit` | The CLI commands installed on your machine. |
+
+Same pattern as `Beautiful Soup` (installed as `beautifulsoup4`) and `Pillow` (the `PIL` fork).
 
 ---
 
 ## Troubleshooting
 
-### "No GROQ_API_KEY set"
+### `vibeguard: command not found`
 
-The AI narration feature requires a Groq key. Run the setup wizard:
-
-```bash
-vibeguard setup
-```
-
-Or set the key manually in your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
-
-```bash
-export GROQ_API_KEY="your-key-here"
-```
-
-The scanner and git hook work fine without a key — only the narration and line explanation features require it.
-
----
-
-### "vibeguard: command not found"
-
-The pip scripts directory isn't in your PATH. Try:
+The pip scripts directory isn't in your PATH:
 
 ```bash
 pip install --force-reinstall jenchad-guard
-```
 
-If that doesn't fix it, find where pip installs scripts and add it to your PATH:
-
-```bash
+# If still not found, add scripts to PATH:
 python -m site --user-base
 # → /home/yourname/.local
 # Add /home/yourname/.local/bin to your PATH
 ```
 
----
+### `--narrate` or `--explain` AI features not working
 
-### "hook not working" / commits aren't being scanned
+```bash
+# Check the key is set
+echo $GROQ_API_KEY        # macOS/Linux
+echo %GROQ_API_KEY%       # Windows
 
-Check the hook status:
+# Run guided setup
+vibeguard setup
+
+# Or set manually
+export GROQ_API_KEY="your-key-here"
+```
+
+The scanner and git hook work without a key — only AI features need it.
+
+### `groq package not installed`
+
+```bash
+pip install groq
+```
+
+### Hook not blocking commits
 
 ```bash
 vibeguard hook status
-```
 
-If it shows the hook isn't installed, run `vibeguard hook install` again. If it shows installed but commits aren't being scanned, check whether the current repo has disabled the hook:
-
-```bash
+# If disabled for this repo:
 git config --local vibe-tools.disable
-# If this prints "true", re-enable with:
+# If prints "true":
 vibeguard hook enable
 ```
 
----
-
-### "Directory not found"
-
-You passed a path that doesn't exist:
-
-```bash
-vibeguard check /wrong/path
-# → Directory not found: /wrong/path
-```
-
-Make sure the path is correct, or run from inside the project:
-
-```bash
-cd your-project
-vibeguard check .
-```
-
----
-
-### The hook blocked a commit but I need to commit anyway
-
-Use git's bypass flag:
+### Need to commit urgently despite issues
 
 ```bash
 git commit --no-verify -m "your message"
 ```
 
-Or disable the hook for this repo:
+### Blocked commit but issue is a false positive
 
-```bash
-vibeguard hook disable
-git commit -m "your message"
-vibeguard hook enable   # re-enable when done
+Add a suppression comment to the flagged line:
+
+```python
+url = "http://localhost:3000"   # vibecheck-ignore: P6
 ```
 
 ---
 
 ## Uninstalling
 
-Remove the git hook first, then uninstall the package:
-
 ```bash
 vibeguard hook uninstall
 pip uninstall jenchad-guard
 ```
 
-`hook uninstall` clears `core.hooksPath` from your global git config, so git returns to its default hook behaviour immediately.
+`hook uninstall` clears `core.hooksPath` from your global git config — git returns to default behaviour immediately.
 
 ---
 
 ## License
 
-MIT
+MIT — [github.com/Jen-chad/vibe-tools](https://github.com/Jen-chad/vibe-tools)

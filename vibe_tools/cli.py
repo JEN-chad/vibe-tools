@@ -61,31 +61,33 @@ cli.add_command(setup_cmd, name="setup")
 
 @cli.command("check")
 @click.argument("path", default=".", type=click.Path())
-@click.option("--scan-only", is_flag=True, help="Only run regression scan (no AI)")
-@click.option("--autofix", is_flag=True, help="Generate AI prompts to fix issues")
-@click.option("--copy", is_flag=True, help="Copy autofix prompt to clipboard")
-@click.option("--one-prompt", is_flag=True, help="Combine all autofix prompts into one")
-@click.option("--strict", is_flag=True, help="Fail on MED issues also")
-@click.option("--compact", is_flag=True, help="Minimal output")
-@click.option("--mode", type=click.Choice(["eli5", "beginner", "dev"]), default=None)
-@click.option("--commits", default=1, help="Number of recent commits to scan")
-def check(path, scan_only, autofix, copy, one_prompt, strict, compact, mode, commits):
-    """
-    Scan code for AI-generated bugs.
-    """
-    from vibe_tools.vibecheck import run_check
+@click.option("--autofix",    is_flag=True, help="Generate fix prompts for found issues")
+@click.option("--copy",       is_flag=True, help="Copy autofix prompts to clipboard")
+@click.option("--one-prompt", is_flag=True, help="Combine all fix prompts into one")
+@click.option("--strict",     is_flag=True, help="Fail on MED issues too")
+@click.option("--compact",    is_flag=True, help="One line per issue (CI-friendly)")
+@click.option("--narrate",    is_flag=True, help="AI diff explanation  (needs GROQ_API_KEY)")
+@click.option("--explain",    is_flag=True, help="Numbered fix guidance per issue (Groq optional)")
+@click.option("--mode",       type=click.Choice(["eli5", "beginner", "dev"]), default=None,
+              help="AI explanation style (default: dev, or set in .vibecheck)")
+@click.option("--commits",    default=1, type=int,
+              help="Number of recent commits to scan (default: 1)")
+def check(path, autofix, copy, one_prompt, strict, compact, narrate, explain, mode, commits):
+    """Scan code for AI-generated bugs."""
+    from vibe_tools.vibecheck import run_check, ScanConfig
 
-    run_check(
-        path,
-        scan_only,
-        autofix,
-        copy,
-        one_prompt,
-        strict,
-        compact,
-        mode,
-        commits
-    )
+    run_check(ScanConfig(
+        path=path,
+        autofix=autofix,
+        copy=copy,
+        one_prompt=one_prompt,
+        strict=strict,
+        compact=compact,
+        narrate=narrate,
+        explain=explain,
+        mode=mode or "dev",
+        commits=commits,
+    ))
 
 
 # ─── PROMPT COMMAND ─────────────────────────────────────────────────────────
