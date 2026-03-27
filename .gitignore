@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Build artifacts
 dist/
 build/
@@ -20,3 +21,55 @@ Thumbs.db
 .vscode/
 .idea/
 
+=======
+
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+
+out/
+dist/
+*.vsix
+
+# VS Code
+
+.vscode/
+*.code-workspace
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Logs
+
+logs/
+*.log
+
+# Environment variables
+
+.env
+.env.*
+
+# Python (since you also have CLI)
+
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+
+# Packaging
+
+*.tgz
+
+# Misc
+
+coverage/
+.cache/
+VIBELOG.md
+.codesentry-baseline.json
+>>>>>>> 85f4a30 (Initial commit - added project files)

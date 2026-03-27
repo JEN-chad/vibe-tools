@@ -1,0 +1,86 @@
+{
+  "name": "codesentry",
+  "displayName": "CodeSentry — AI Code Security",
+  "description": "Real-time security scanning for AI-generated code. Zero setup. 18 patterns. Autofix prompts. Works instantly on install.",
+  "version": "1.0.0",
+  "publisher": "jenchad",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/Jen-chad/vibe-tools" },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Linters", "Other"],
+  "keywords": ["security","AI code","secrets","SQL injection","ChatGPT","Copilot","codesentry"],
+  "icon": "icon.png",
+  "galleryBanner": { "color": "#0F1B2D", "theme": "dark" },
+  "activationEvents": [
+    "onLanguage:python","onLanguage:javascript","onLanguage:typescript",
+    "onLanguage:javascriptreact","onLanguage:typescriptreact",
+    "onLanguage:yaml","onLanguage:json","onLanguage:shellscript"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "codesentry.scanFile",            "title": "CodeSentry: Scan Current File" },
+      { "command": "codesentry.scanWorkspace",       "title": "CodeSentry: Scan Entire Workspace" },
+      { "command": "codesentry.clearDiagnostics",    "title": "CodeSentry: Clear All Diagnostics" },
+      { "command": "codesentry.explainIssues",       "title": "CodeSentry: Open Fix Guidance Panel" },
+      { "command": "codesentry.copyFixPrompt",       "title": "CodeSentry: Copy Fix Prompt for This Issue" },
+      { "command": "codesentry.copyOnePrompt",       "title": "CodeSentry: Copy ONE Prompt for All Issues in File" },
+      { "command": "codesentry.copyWorkspacePrompt", "title": "CodeSentry: Copy ONE Prompt for All Workspace Issues" },
+      { "command": "codesentry.openDashboard",       "title": "CodeSentry: Open Security Dashboard",
+        "icon": "$(shield)" }
+    ],
+    "keybindings": [
+      {
+        "command": "codesentry.openDashboard",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorFocus"
+      }
+    ],
+    "configuration": {
+      "title": "CodeSentry",
+      "properties": {
+        "codesentry.enabled":        { "type": "boolean", "default": true,       "description": "Enable CodeSentry security scanning" },
+        "codesentry.scanOnSave":     { "type": "boolean", "default": true,       "description": "Scan automatically when you save" },
+        "codesentry.scanOnType":     { "type": "boolean", "default": false,      "description": "Scan while typing (1.5s debounce)" },
+        "codesentry.strict":         { "type": "boolean", "default": false,      "description": "Show MED issues as warnings too" },
+        "codesentry.showInlineHints":{ "type": "boolean", "default": true,       "description": "Show fix guidance in hover tooltip" },
+        "codesentry.codesentryPath":  { "type": "string",  "default": "codesentry","description": "Path to codesentry CLI (for AST enhanced mode)" }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "codesentry.openDashboard",
+          "group": "navigation",
+          "when": "resourceLangId == python || resourceLangId == javascript || resourceLangId == typescript"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codesentry.explainIssues",
+          "group": "codesentry@1",
+          "when": "resourceLangId == python || resourceLangId == javascript || resourceLangId == typescript"
+        },
+        {
+          "command": "codesentry.copyOnePrompt",
+          "group": "codesentry@2",
+          "when": "resourceLangId == python || resourceLangId == javascript || resourceLangId == typescript"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.24.0"
+  }
+}

@@ -1,0 +1,8 @@
+
+# uninstall
+code --uninstall-extension jenchad.vibeguard
+
+# reinstall
+
+vsce package
+code --install-extension vibeguard-1.0.0.vsix --force
