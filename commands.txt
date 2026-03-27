@@ -1,8 +1,8 @@
 
 # uninstall
-code --uninstall-extension jenchad.vibeguard
+code --uninstall-extension codesentry
 
 # reinstall
 
 vsce package
-code --install-extension vibeguard-1.0.0.vsix --force
+code --install-extension codesentry-1.0.0.vsix --force
